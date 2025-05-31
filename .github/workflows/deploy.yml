@@ -3,7 +3,7 @@ name: Deploy Node.js App to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build:
@@ -17,13 +17,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-
       - name: Install dependencies
         run: npm install
-
       - name: Run tests
         run: npm test
-
       - name: Build static site
         run: npm run dev
           # Add build commands here if needed
