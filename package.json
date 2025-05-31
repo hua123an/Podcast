@@ -1,0 +1,29 @@
+{
+  "name": "podcast-backend",
+  "version": "1.0.0",
+  "description": "Podcast RSS feed API backend",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "@koa/cors": "^5.0.0",
+    "axios": "^1.9.0",
+    "fast-xml-parser": "^5.2.3",
+    "koa": "^3.0.0",
+    "koa-bodyparser": "^4.4.1",
+    "koa-router": "^13.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "podcast",
+    "rss",
+    "api",
+    "feed"
+  ],
+  "author": "",
+  "license": "MIT"
+}
