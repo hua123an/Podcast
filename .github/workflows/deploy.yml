@@ -23,7 +23,6 @@ jobs:
         run: npm test
       - name: Build static site
         run: npm run dev
-          # Add build commands here if needed
           echo "Building static site..."
           # Example for building a static site:
           npm run dev
