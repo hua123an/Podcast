@@ -1,4 +1,4 @@
-name: Deploy Node.js App to GitHub Pages
+name: Deploy API to Vercel
 
 on:
   push:
@@ -17,17 +17,32 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+
       - name: Install dependencies
         run: npm install
-      - name: Build static site
-        run: |
-          npm run dev
-          echo "Building static site..."
-          # Example for building a static site:
-          npm run dev
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Run tests
+        run: npm test
+
+      - name: Create Vercel configuration
+        run: |
+          echo '{
+            "version": 2,
+            "builds": [{
+              "src": "app.js",
+              "use": "@vercel/node-server"
+            }],
+            "routes": [{
+              "src": "/api/feed(.*)",
+              "dest": "app.js"
+            }]
+          }' > vercel.json
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          vercel_token: ${{ secrets.VERCEL_TOKEN }}
+          vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          git_root_path: '/'
+          team: 'hua123an'

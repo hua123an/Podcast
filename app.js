@@ -6,7 +6,6 @@ const feedRoutes = require('./routes/feed');
 
 const app = new Koa();
 const router = new Router();
-const PORT = process.env.PORT || 3000;
 
 // 错误处理中间件
 app.use(async (ctx, next) => {
@@ -54,7 +53,16 @@ app.use(async (ctx) => {
   };
 });
 
-app.listen(PORT, () => {
-  console.log(`Podcast Backend API server is running on port ${PORT}`);
-  console.log(`API base URL: http://localhost:${PORT}/api/feed`);
-});
+// Vercel要求导出一个处理函数
+module.exports = async (req, res) => {
+  await app.callback()(req, res);
+};
+
+// 本地监听（用于开发环境）
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Podcast Backend API server is running on port ${PORT}`);
+    console.log(`API base URL: http://localhost:${PORT}/api/feed`);
+  });
+}
