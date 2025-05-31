@@ -6,6 +6,10 @@ const feedRoutes = require('./routes/feed');
 
 const app = new Koa();
 const router = new Router();
+app.use(async (ctx, next) => {
+    ctx.set('Access-Control-Allow-Origin', '*');
+    await next();
+})
 
 // 错误处理中间件
 app.use(async (ctx, next) => {
