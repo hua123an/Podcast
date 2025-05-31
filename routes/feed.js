@@ -164,24 +164,74 @@ function getAtomAudioUrl(links) {
   return audioLink ? audioLink['@_href'] : '';
 }
 
-// GET /api/feed 路由
+// 推荐 - 获取最新一期的播客
+router.get('/recommendations', async (ctx) => {
+  try {
+    // 随机选择几个播客源获取最新内容
+    const sampleFeeds = BUILT_IN_FEEDS.sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    const results = [];
+    
+    for (const feed of sampleFeeds) {
+      try {
+        const feedData = await parseFeed(feed.url);
+        
+        // 按发布时间排序单集，取最新的一期
+        const sortedEpisodes = [...feedData.episodes].sort((a, b) => {
+          return new Date(b.pubDate) - new Date(a.pubDate);
+        });
+        
+        if (sortedEpisodes.length > 0) {
+          results.push(sortedEpisodes[0]);
+        }
+      } catch (error) {
+        console.error(`Failed to parse feed ${feed.url}:`, error.message);
+      }
+    }
+    
+    // 按最新发布日期排序推荐结果
+    results.sort((a, b) => {
+      return new Date(b.pubDate) - new Date(a.pubDate);
+    });
+    
+    ctx.body = results;
+  } catch (error) {
+    console.error('Recommendation error:', error);
+    ctx.status = 500;
+    ctx.body = {
+      error: 'Internal Server Error',
+      message: 'Failed to get recommendations: ' + error.message
+    };
+  }
+});
+
+// 批量获取内置播客源（增强分页支持）
 router.get('/', async (ctx) => {
   try {
-    const { url, all } = ctx.query;
+    const { url, all, page, limit } = ctx.query;
 
     // 批量获取内置播客源
     if (all === '1') {
+      const pageNum = parseInt(page) || 1;
+      const pageSize = parseInt(limit) || 5;
+      
+      // 分页处理
+      const start = (pageNum - 1) * pageSize;
+      const end = start + pageSize;
+      
+      const paginatedFeeds = BUILT_IN_FEEDS.slice(start, end);
+      
       const results = [];
 
-      for (const feedUrl of BUILT_IN_FEEDS) {
+      for (const feed of paginatedFeeds) {
         try {
-          const feedData = await parseFeed(feedUrl);
+          const feedData = await parseFeed(feed.url);
           results.push(feedData);
         } catch (error) {
-          console.error(`Failed to parse feed ${feedUrl}:`, error.message);
+          console.error(`Failed to parse feed ${feed.url}:`, error.message);
           // 继续处理其他订阅源，不因单个失败而中断
           results.push({
-            url: feedUrl,
+            url: feed.url,
             error: error.message,
             info: null,
             episodes: []
@@ -189,7 +239,13 @@ router.get('/', async (ctx) => {
         }
       }
 
-      ctx.body = results;
+      ctx.body = {
+        currentPage: pageNum,
+        pageSize: pageSize,
+        total: BUILT_IN_FEEDS.length,
+        totalPages: Math.ceil(BUILT_IN_FEEDS.length / pageSize),
+        data: results
+      };
       return;
     }
 
@@ -212,6 +268,211 @@ router.get('/', async (ctx) => {
     ctx.body = {
       error: 'Internal Server Error',
       message: 'Failed to parse feed: ' + error.message
+    };
+  }
+});
+
+// 获取单个播客订阅源（带订阅检查）
+router.get('/', async (ctx) => {
+  try {
+    const { url, all } = ctx.query;
+
+    // 批量获取内置播客源
+    if (all === '1') {
+      const pageNum = parseInt(page) || 1;
+      const pageSize = parseInt(limit) || 5;
+      
+      // 分页处理
+      const start = (pageNum - 1) * pageSize;
+      const end = start + pageSize;
+      
+      const paginatedFeeds = BUILT_IN_FEEDS.slice(start, end);
+      
+      const results = [];
+
+      for (const feed of paginatedFeeds) {
+        try {
+          const feedData = await parseFeed(feed.url);
+          results.push(feedData);
+        } catch (error) {
+          console.error(`Failed to parse feed ${feed.url}:`, error.message);
+          // 继续处理其他订阅源，不因单个失败而中断
+          results.push({
+            url: feed.url,
+            error: error.message,
+            info: null,
+            episodes: []
+          });
+        }
+      }
+
+      ctx.body = {
+        currentPage: pageNum,
+        pageSize: pageSize,
+        total: BUILT_IN_FEEDS.length,
+        totalPages: Math.ceil(BUILT_IN_FEEDS.length / pageSize),
+        data: results
+      };
+      return;
+    }
+    
+    // 处理单个订阅源请求
+    if (!url) {
+      ctx.status = 400;
+      ctx.body = {
+        error: 'Bad Request',
+        message: 'Missing required parameter: url'
+      };
+      return;
+    }
+    
+    // 检查订阅是否存在
+    const subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
+    let subscriptionsData = { subscriptions: [] };
+    
+    try {
+      const data = fs.readFileSync(subscriptionsPath, 'utf8');
+      subscriptionsData = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading subscriptions file:', error);
+      // 如果文件不存在或无法解析，使用空数组
+      subscriptionsData.subscriptions = [];
+    }
+    
+    // 检查是否已存在
+    const existingSubscription = subscriptionsData.subscriptions.find(
+      subscription => subscription.url === url
+    );
+    
+    if (existingSubscription) {
+      // 如果存在，直接返回现有信息
+      ctx.body = {
+        message: '该订阅地址已存在，直接返回缓存信息',
+        subscription: existingSubscription
+      };
+      return;
+    }
+    
+    // 如果不存在，解析新订阅源
+    const feedData = await parseFeed(url);
+    
+    // 生成新订阅对象
+    const newSubscription = {
+      id: Date.now().toString(),
+      title: feedData.info.title || '未知标题',
+      url,
+      image: feedData.info.image || '',
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // 添加新订阅
+    subscriptionsData.subscriptions.push(newSubscription);
+    
+    // 写回文件
+    fs.writeFileSync(subscriptionsPath, JSON.stringify(subscriptionsData, null, 2), 'utf8');
+    
+    // 返回解析结果
+    ctx.body = {
+      message: '订阅源已成功添加并解析',
+      subscription: newSubscription,
+      episodes: feedData.episodes
+    };
+    
+  } catch (error) {
+    console.error('Feed parsing error:', error);
+    ctx.status = 500;
+    ctx.body = {
+      error: 'Internal Server Error',
+      message: 'Failed to parse feed: ' + error.message
+    };
+  }
+});
+
+// 处理订阅源地址
+router.get('/url', async (ctx) => {
+  try {
+    const { url } = ctx.query;
+
+    if (!url) {
+      ctx.status = 400;
+      ctx.body = {
+        error: 'Bad Request',
+        message: 'Missing required parameter: url'
+      };
+      return;
+    }
+
+    const subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
+    let subscriptionsData = { subscriptions: [] };
+    
+    try {
+      const data = fs.readFileSync(subscriptionsPath, 'utf8');
+      subscriptionsData = JSON.parse(data);
+    } catch (error) {
+      console.error('Error reading subscriptions file:', error);
+      // 如果文件不存在或无法解析，使用空数组
+      subscriptionsData.subscriptions = [];
+    }
+
+    // 检查是否已存在
+    const existingSubscription = subscriptionsData.subscriptions.find(
+      subscription => subscription.url === url
+    );
+
+    if (existingSubscription) {
+      ctx.body = {
+        message: '该订阅地址已存在',
+        subscription: existingSubscription
+      };
+      return;
+    }
+
+    // 解析新订阅源
+    const feedData = await parseFeed(url);
+    
+    // 生成新订阅对象
+    const newSubscription = {
+      id: Date.now().toString(),
+      title: feedData.info.title,
+      url,
+      image: feedData.info.image || '',
+      lastUpdated: new Date().toISOString()
+    };
+
+    // 添加新订阅
+    subscriptionsData.subscriptions.push(newSubscription);
+
+    // 写回文件
+    fs.writeFileSync(subscriptionsPath, JSON.stringify(subscriptionsData, null, 2), 'utf8');
+
+    ctx.body = {
+      message: '订阅源已成功添加',
+      subscription: newSubscription,
+      episodes: feedData.episodes
+    };
+    
+  } catch (error) {
+    console.error('Subscription error:', error);
+    ctx.status = 500;
+    ctx.body = {
+      error: 'Internal Server Error',
+      message: 'Failed to process subscription: ' + error.message
+    };
+  }
+});
+
+// 获取订阅数据源
+router.get('/subscriptions', async (ctx) => {
+  try {
+    const subscriptionsPath = path.join(__dirname, '../data/subscriptions.json');
+    const data = fs.readFileSync(subscriptionsPath, 'utf8');
+    ctx.body = JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading subscriptions:', error);
+    ctx.status = 500;
+    ctx.body = {
+      error: 'Internal Server Error',
+      message: 'Failed to read subscriptions data'
     };
   }
 });

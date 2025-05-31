@@ -33,7 +33,7 @@ npm start
 npm run dev
 ```
 
-服务启动后，API 基础地址为：`http://localhost:3000`
+服务启动后，API 基础地址为：`http://podcast.huaan666.site`
 
 ## API 接口
 
@@ -44,26 +44,63 @@ npm run dev
 **示例**：
 
 ```
-http://localhost:3000/api/feed?url=https://www.ximalaya.com/album/3558668.xml
+http://podcast.huaan666.site/api/feed?url=https://www.ximalaya.com/album/3558668.xml
 ```
 
 **参数**：
 
 - `url`（必填）：播客 RSS/Atom 订阅源的完整 URL
 
-### 2. 批量获取内置播客源
+### 2. 批量获取内置播客源（支持分页）
 
 **接口**：`GET /api/feed?all=1`
 
 **示例**：
 
 ```
-http://localhost:3000/api/feed?all=1
+http://podcast.huaan666.site/api/feed?all=1&page=1&limit=5
 ```
 
 **参数**：
 
 - `all=1`（必填）：返回后端内置的所有播客源
+- `page`（可选）：页码，默认为1
+- `limit`（可选）：每页数量，默认为5
+
+### 3. 推荐最新播客
+
+**接口**：`GET /api/feed/recommendations`
+
+**示例**：
+
+```
+http://podcast.huaan666.site/api/feed/recommendations
+```
+
+**返回值**：
+
+```json
+[{
+  "feedInfo": {
+    "title": "播客标题",
+    "description": "播客简介",
+    "link": "官网链接",
+    "image": "封面图片",
+    "author": "作者",
+    "language": "语言",
+    "copyright": "版权信息"
+  },
+  "latestEpisode": {
+    "title": "单集标题",
+    "description": "单集简介",
+    "pubDate": "发布时间",
+    "audioUrl": "音频地址",
+    "duration": "时长",
+    "image": "单集封面",
+    "guid": "唯一标识"
+  }
+}]
+```
 
 ## 返回数据结构
 
@@ -92,6 +129,18 @@ http://localhost:3000/api/feed?all=1
       "guid": "唯一标识"
     }
   ]
+}
+```
+
+### 分页响应结构
+
+```json
+{
+  "currentPage": 1,
+  "pageSize": 5,
+  "total": 7,
+  "totalPages": 2,
+  "data": [/* 上面定义的单个订阅源返回示例数组 */]
 }
 ```
 
@@ -131,6 +180,8 @@ http://localhost:3000/api/feed?all=1
 - 完善的错误处理机制
 - 跨域支持
 - 轻量级、高性能的中间件架构
+- 新增推荐功能：基于最新一期的推荐
+- 新增分页支持：可控制每页大小和页码
 
 ## 环境变量
 

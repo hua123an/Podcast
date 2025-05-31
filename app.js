@@ -3,13 +3,12 @@ const Router = require('koa-router');
 const bodyParser = require('koa-bodyparser');
 const cors = require('@koa/cors');
 const feedRoutes = require('./routes/feed');
+const fs = require('fs');
+const path = require('path');  // 添加path模块
 
 const app = new Koa();
 const router = new Router();
-app.use(async (ctx, next) => {
-    ctx.set('Access-Control-Allow-Origin', '*');
-    await next();
-})
+const PORT = process.env.PORT || 3000;
 
 // 错误处理中间件
 app.use(async (ctx, next) => {
@@ -35,8 +34,10 @@ router.get('/', async (ctx) => {
     message: 'Podcast Backend API',
     version: '1.0.0',
     endpoints: {
-      'GET /api/feed?url=<rss_url>': '获取单个播客订阅源',
-      'GET /api/feed?all=1': '批量获取内置播客源'
+      'GET /api/feed?url=<rss_url>': '获取单个播客订阅源（自动检查订阅）',
+      'GET /api/feed?all=1': '批量获取内置播客源',
+      'GET /api/feed/recommendations': '推荐最新播客单集',
+      'GET /api/feed/subscriptions': '获取订阅数据源'
     }
   };
 });
@@ -55,6 +56,11 @@ app.use(async (ctx) => {
     error: 'Not Found',
     message: 'API endpoint not found'
   };
+});
+
+app.listen(PORT, () => {
+  console.log(`Podcast Backend API server is running on port ${PORT}`);
+  console.log(`API base URL: http://localhost:${PORT}/api/feed`);
 });
 
 // Vercel要求导出一个处理函数
